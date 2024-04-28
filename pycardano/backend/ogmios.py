@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from fractions import Fraction
 from typing import Any, Dict, List, Optional, Tuple, Union
+import cbor2
 
 import requests
 import websocket
@@ -16,11 +17,10 @@ from pycardano.backend.base import (
     GenesisParameters,
     ProtocolParameters,
 )
-from pycardano.backend.blockfrost import _try_fix_script
 from pycardano.exception import TransactionFailedException
 from pycardano.hash import DatumHash, ScriptHash
 from pycardano.network import Network
-from pycardano.plutus import ExecutionUnits, PlutusV1Script, PlutusV2Script
+from pycardano.plutus import ExecutionUnits, PlutusV1Script, PlutusV2Script, script_hash
 from pycardano.serialization import RawCBOR
 from pycardano.transaction import (
     Asset,
@@ -34,6 +34,19 @@ from pycardano.transaction import (
 from pycardano.types import JsonDict
 
 __all__ = ["OgmiosChainContext"]
+
+
+def _try_fix_script(
+    scripth: str, script: Union[PlutusV1Script, PlutusV2Script]
+) -> Union[PlutusV1Script, PlutusV2Script]:
+    if str(script_hash(script)) == scripth:
+        return script
+    else:
+        new_script = script.__class__(cbor2.loads(script))
+        if str(script_hash(new_script)) == scripth:
+            return new_script
+        else:
+            raise ValueError("Cannot recover script from hash.")
 
 
 class OgmiosQueryType(str, Enum):
